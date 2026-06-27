@@ -1,9 +1,22 @@
-# Only3D Global Engineering Rules
+# Only3d Custom - Development Workflow Rules
 
-## Documentation as the Source of Truth
-
-- **Mandatory Reading:** Before beginning any implementation task, you MUST read the relevant files in the `docs/` directory. These documents are the absolute source of truth for the platform.
-- **Conflict Resolution:** If any new work, requested feature, or architectural decision conflicts with the established documentation, you must FIRST explain the conflict to the user.
-- **Documentation First:** You must update the relevant documentation in `docs/` and receive approval BEFORE writing or altering any code.
-- **No Hardcoded Business Data:** Everything must be configurable through the Admin Panel.
-- **Long-Term Design:** Build reusable components, APIs, and services. Design for scalability.
+1. Never use regex-based PowerShell or Node one-liners to modify source files unless absolutely unavoidable.
+2. Edit source files directly whenever possible.
+3. If a command fails more than twice, stop retrying blindly. Instead:
+   - inspect the compiler output,
+   - identify the root cause,
+   - fix it,
+   - rerun.
+4. Temporary generation scripts may be created during execution but must be deleted before the task is considered complete unless they are intended as permanent developer tooling.
+5. Never report success until all of the following have completed successfully:
+   - lint
+   - build
+   - typecheck
+   - tests
+   - commit
+   - push
+   - GitHub Actions
+6. Do not describe a feature as complete while CI is still pending.
+7. Minimize shell command count. Prefer making one correct edit over many small automated patches.
+8. Avoid repeated search-and-replace operations on production code. Prefer AST-aware edits or direct source edits.
+9. Every architectural change must leave the repository in a clean state (git status must report "working tree clean").
