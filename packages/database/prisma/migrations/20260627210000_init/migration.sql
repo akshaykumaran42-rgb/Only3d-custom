@@ -5,7 +5,7 @@ CREATE TYPE "MaterialType" AS ENUM ('FDM', 'RESIN', 'SLS', 'METAL');
 CREATE TYPE "MaterialStatus" AS ENUM ('DRAFT', 'ACTIVE', 'INACTIVE');
 
 -- CreateEnum
-CREATE TYPE "PrinterStatus" AS ENUM ('IDLE', 'PRINTING', 'MAINTENANCE', 'OFFLINE');
+CREATE TYPE "PrinterStatus" AS ENUM ('AVAILABLE', 'IN_USE', 'OFFLINE', 'NEEDS_MAINTENANCE', 'UNDER_REPAIR');
 
 -- CreateEnum
 CREATE TYPE "JobStatus" AS ENUM ('QUEUED', 'PREPARING', 'PRINTING', 'POST_PROCESSING', 'COMPLETED', 'FAILED', 'CANCELED');
@@ -222,11 +222,50 @@ CREATE TABLE "MaterialProfile" (
 );
 
 -- CreateTable
-CREATE TABLE "Printer" (
+CREATE TABLE "PrinterManufacturer" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "model" TEXT,
-    "status" "PrinterStatus" NOT NULL DEFAULT 'IDLE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PrinterManufacturer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PrinterModel" (
+    "id" TEXT NOT NULL,
+    "manufacturerId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "buildVolumeX" DOUBLE PRECISION NOT NULL,
+    "buildVolumeY" DOUBLE PRECISION NOT NULL,
+    "buildVolumeZ" DOUBLE PRECISION NOT NULL,
+    "supportedMaterials" TEXT[],
+    "supportedNozzles" DOUBLE PRECISION[],
+    "supportedLayerHeights" DOUBLE PRECISION[],
+    "maxExtruderTemp" INTEGER NOT NULL,
+    "maxBedTemp" INTEGER NOT NULL,
+    "averagePowerWatts" DOUBLE PRECISION NOT NULL,
+    "maxAcceleration" DOUBLE PRECISION,
+    "maxSpeed" DOUBLE PRECISION,
+    "volumetricFlow" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PrinterModel_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Printer" (
+    "id" TEXT NOT NULL,
+    "modelId" TEXT NOT NULL,
+    "serialNumber" TEXT,
+    "nickname" TEXT NOT NULL,
+    "maintenanceStatus" TEXT,
+    "status" "PrinterStatus" NOT NULL DEFAULT 'AVAILABLE',
+    "installedNozzle" DOUBLE PRECISION,
+    "installedBuildPlate" TEXT,
+    "firmwareVersion" TEXT,
+    "location" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -235,15 +274,22 @@ CREATE TABLE "Printer" (
 );
 
 -- CreateTable
-CREATE TABLE "PrinterNozzle" (
+CREATE TABLE "PrinterProfile" (
     "id" TEXT NOT NULL,
     "printerId" TEXT NOT NULL,
-    "diameter" DOUBLE PRECISION NOT NULL,
-    "materialType" TEXT,
+    "name" TEXT NOT NULL,
+    "hourlyMachineCost" INTEGER NOT NULL,
+    "electricityTariff" INTEGER NOT NULL,
+    "depreciationMultiplier" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "wearMultiplier" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "failureMultiplier" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "profitMultiplier" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "speedMultiplier" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "qualityMultiplier" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "PrinterNozzle_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "PrinterProfile_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -570,7 +616,16 @@ CREATE INDEX "Material_materialType_idx" ON "Material"("materialType");
 CREATE UNIQUE INDEX "MaterialProfile_materialId_printerId_key" ON "MaterialProfile"("materialId", "printerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Printer_name_key" ON "Printer"("name");
+CREATE UNIQUE INDEX "PrinterManufacturer_name_key" ON "PrinterManufacturer"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PrinterModel_name_key" ON "PrinterModel"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Printer_serialNumber_key" ON "Printer"("serialNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Printer_nickname_key" ON "Printer"("nickname");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UploadedFile_s3Key_key" ON "UploadedFile"("s3Key");
@@ -630,7 +685,13 @@ ALTER TABLE "MaterialProfile" ADD CONSTRAINT "MaterialProfile_materialId_fkey" F
 ALTER TABLE "MaterialProfile" ADD CONSTRAINT "MaterialProfile_printerId_fkey" FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PrinterNozzle" ADD CONSTRAINT "PrinterNozzle_printerId_fkey" FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PrinterModel" ADD CONSTRAINT "PrinterModel_manufacturerId_fkey" FOREIGN KEY ("manufacturerId") REFERENCES "PrinterManufacturer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Printer" ADD CONSTRAINT "Printer_modelId_fkey" FOREIGN KEY ("modelId") REFERENCES "PrinterModel"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PrinterProfile" ADD CONSTRAINT "PrinterProfile_printerId_fkey" FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ManufacturingJob" ADD CONSTRAINT "ManufacturingJob_printerId_fkey" FOREIGN KEY ("printerId") REFERENCES "Printer"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -178,14 +178,14 @@ enum MaterialStatus {
 
 model Material {
   id                          String         @id @default(uuid())
-  name                        String         @unique 
+  name                        String         @unique
   internalCode                String         @unique
   category                    String
   brand                       String
   materialType                MaterialType   @default(FDM)
-  density                     Float          // g/cm³
-  costPerKg                   Int            // Stored in cents
-  sellingPricePerGram         Float          // Allows fractional cents for precise quoting
+  density                     Float // g/cm³
+  costPerKg                   Int // Stored in cents
+  sellingPricePerGram         Float // Allows fractional cents for precise quoting
   defaultPrintSpeedMultiplier Float          @default(1.0)
   nozzleTemperature           Int
   bedTemperature              Int
@@ -255,34 +255,85 @@ model MaterialProfile {
 // MANUFACTURING DOMAIN
 // ----------------------------------------------------------------------
 
-model Printer {
-  id     String        @id @default(uuid())
-  name   String        @unique
-  model  String?
-  status PrinterStatus @default(IDLE)
+model PrinterManufacturer {
+  id     String         @id @default(uuid())
+  name   String         @unique
+  models PrinterModel[]
 
-  nozzles  PrinterNozzle[]
-  profiles MaterialProfile[]
-  jobs     ManufacturingJob[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PrinterModel {
+  id             String              @id @default(uuid())
+  manufacturerId String
+  manufacturer   PrinterManufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Restrict)
+  name           String              @unique
+
+  buildVolumeX          Float
+  buildVolumeY          Float
+  buildVolumeZ          Float
+  supportedMaterials    String[]
+  supportedNozzles      Float[]
+  supportedLayerHeights Float[]
+  maxExtruderTemp       Int
+  maxBedTemp            Int
+  averagePowerWatts     Float
+  maxAcceleration       Float?
+  maxSpeed              Float?
+  volumetricFlow        Float?
+
+  printers Printer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PrinterStatus {
+  AVAILABLE
+  IN_USE
+  OFFLINE
+  NEEDS_MAINTENANCE
+  UNDER_REPAIR
+}
+
+model Printer {
+  id                String        @id @default(uuid())
+  modelId           String
+  model             PrinterModel  @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  serialNumber      String?       @unique
+  nickname          String        @unique
+  maintenanceStatus String?
+  status            PrinterStatus @default(AVAILABLE)
+
+  installedNozzle     Float?
+  installedBuildPlate String?
+  firmwareVersion     String?
+  location            String?
+
+  profiles    PrinterProfile[]
+  jobs        ManufacturingJob[]
+  profilesMat MaterialProfile[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 }
 
-enum PrinterStatus {
-  IDLE
-  PRINTING
-  MAINTENANCE
-  OFFLINE
-}
+model PrinterProfile {
+  id        String  @id @default(uuid())
+  printerId String
+  printer   Printer @relation(fields: [printerId], references: [id], onDelete: Cascade)
+  name      String
 
-model PrinterNozzle {
-  id           String  @id @default(uuid())
-  printerId    String
-  printer      Printer @relation(fields: [printerId], references: [id], onDelete: Cascade)
-  diameter     Float // e.g. 0.4, 0.6
-  materialType String? // e.g. "Brass", "Hardened Steel"
+  hourlyMachineCost      Int
+  electricityTariff      Int
+  depreciationMultiplier Float @default(1.0)
+  wearMultiplier         Float @default(1.0)
+  failureMultiplier      Float @default(1.0)
+  profitMultiplier       Float @default(1.0)
+  speedMultiplier        Float @default(1.0)
+  qualityMultiplier      Float @default(1.0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
