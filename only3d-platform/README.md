@@ -1,1 +1,0 @@
-# only3d-platform
