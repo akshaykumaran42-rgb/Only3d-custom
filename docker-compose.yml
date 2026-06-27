@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  only3d-postgres:
+    image: postgres:15-alpine
+    container_name: only3d-postgres
+    environment:
+      POSTGRES_USER: only3d
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: only3d_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U only3d"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

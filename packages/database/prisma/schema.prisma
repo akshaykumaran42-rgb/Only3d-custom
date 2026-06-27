@@ -1,0 +1,602 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  permissions Permission[]
+  users       User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  action      String  @unique // e.g. "order:read", "inventory:write"
+  description String?
+  roles       Role[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String?
+  firstName    String?
+  lastName     String?
+  roleId       String?
+  role         Role?   @relation(fields: [roleId], references: [id])
+
+  // Auditing
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  // Relations
+  addresses    Address[]
+  sessions     Session[]
+  UploadedFile UploadedFile[]
+  Quote        Quote[]
+  Order        Order[]
+  AuditLog     AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Address {
+  id         String  @id @default(uuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String? // e.g. "Home", "Office"
+  street1    String
+  street2    String?
+  city       String
+  state      String
+  postalCode String
+  country    String
+  isDefault  Boolean @default(false)
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+  Shipment  Shipment[]
+}
+
+// ----------------------------------------------------------------------
+// CATALOG DOMAIN
+// ----------------------------------------------------------------------
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+
+  // Self-referencing for hierarchical categories
+  parentId String?
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+
+  products Product[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+
+  variants ProductVariant[]
+  images   ProductImage[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+}
+
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku       String  @unique
+  name      String
+  basePrice Int // Stored in smallest currency unit (e.g. cents)
+
+  // Relations to physical models/assets can go here
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+}
+
+model ProductImage {
+  id           String  @id @default(uuid())
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url          String
+  altText      String?
+  isPrimary    Boolean @default(false)
+  displayOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------
+// MATERIALS DOMAIN
+// ----------------------------------------------------------------------
+
+model Material {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g. "PLA", "PETG"
+  description String?
+  baseDensity Float? // g/cm³ for weight estimation
+
+  colors   MaterialColor[]
+  profiles MaterialProfile[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+}
+
+model MaterialColor {
+  id         String   @id @default(uuid())
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  name       String // e.g. "Galaxy Black"
+  hexCode    String? // e.g. "#000000"
+
+  priceModifier Int @default(0) // Additional cost in cents
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  quoteItems QuoteItem[]
+}
+
+model MaterialProfile {
+  id         String   @id @default(uuid())
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  printerId  String
+  printer    Printer  @relation(fields: [printerId], references: [id], onDelete: Cascade)
+
+  hotendTemp Int
+  bedTemp    Int
+  fanSpeed   Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([materialId, printerId])
+}
+
+// ----------------------------------------------------------------------
+// MANUFACTURING DOMAIN
+// ----------------------------------------------------------------------
+
+model Printer {
+  id     String        @id @default(uuid())
+  name   String        @unique
+  model  String?
+  status PrinterStatus @default(IDLE)
+
+  nozzles  PrinterNozzle[]
+  profiles MaterialProfile[]
+  jobs     ManufacturingJob[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+enum PrinterStatus {
+  IDLE
+  PRINTING
+  MAINTENANCE
+  OFFLINE
+}
+
+model PrinterNozzle {
+  id           String  @id @default(uuid())
+  printerId    String
+  printer      Printer @relation(fields: [printerId], references: [id], onDelete: Cascade)
+  diameter     Float // e.g. 0.4, 0.6
+  materialType String? // e.g. "Brass", "Hardened Steel"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ManufacturingJob {
+  id          String    @id @default(uuid())
+  printerId   String?
+  printer     Printer?  @relation(fields: [printerId], references: [id])
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  status        JobStatus @default(QUEUED)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  estimatedTime Int? // in minutes
+  actualTime    Int? // in minutes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+}
+
+enum JobStatus {
+  QUEUED
+  PREPARING
+  PRINTING
+  POST_PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+// ----------------------------------------------------------------------
+// INVENTORY DOMAIN
+// ----------------------------------------------------------------------
+
+model FilamentSpool {
+  id              String  @id @default(uuid())
+  materialColorId String
+  vendor          String?
+  batchNumber     String?
+  initialWeight   Float // in grams
+  currentWeight   Float // in grams
+
+  movements InventoryMovement[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model InventoryMovement {
+  id      String        @id @default(uuid())
+  spoolId String
+  spool   FilamentSpool @relation(fields: [spoolId], references: [id], onDelete: Cascade)
+  amount  Float // positive for addition, negative for consumption
+  reason  String? // e.g. "Consumed by Job X", "Manual adjustment"
+
+  createdAt DateTime @default(now())
+  createdBy String?
+}
+
+model StockAlert {
+  id              String  @id @default(uuid())
+  materialColorId String
+  thresholdGrams  Float
+  isResolved      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------
+// UPLOAD SYSTEM
+// ----------------------------------------------------------------------
+
+model UploadedFile {
+  id        String  @id @default(uuid())
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  filename  String
+  s3Key     String  @unique
+  sizeBytes Int
+  format    String // e.g. "STL", "3MF"
+
+  analysis   FileAnalysis?
+  versions   FileVersion[]
+  previews   FilePreview[]
+  quoteItems QuoteItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model FileAnalysis {
+  id             String       @id @default(uuid())
+  fileId         String       @unique
+  file           UploadedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  volumeCm3      Float?
+  surfaceAreaCm2 Float?
+  boundingBoxX   Float?
+  boundingBoxY   Float?
+  boundingBoxZ   Float?
+  isManifold     Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FileVersion {
+  id          String       @id @default(uuid())
+  fileId      String
+  file        UploadedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  s3Key       String       @unique
+  versionNote String?
+
+  createdAt DateTime @default(now())
+}
+
+model FilePreview {
+  id       String       @id @default(uuid())
+  fileId   String
+  file     UploadedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  imageUrl String
+
+  createdAt DateTime @default(now())
+}
+
+// ----------------------------------------------------------------------
+// QUOTE DOMAIN
+// ----------------------------------------------------------------------
+
+model Quote {
+  id     String      @id @default(uuid())
+  userId String?
+  user   User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status QuoteStatus @default(DRAFT)
+
+  subtotal Int @default(0)
+  tax      Int @default(0)
+  total    Int @default(0)
+
+  expiresAt DateTime?
+
+  items  QuoteItem[]
+  orders Order[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+enum QuoteStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+model QuoteItem {
+  id      String       @id @default(uuid())
+  quoteId String
+  quote   Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  fileId  String
+  file    UploadedFile @relation(fields: [fileId], references: [id])
+
+  materialColorId String
+  materialColor   MaterialColor @relation(fields: [materialColorId], references: [id])
+
+  layerHeight Float // e.g. 0.2
+  infill      Int // e.g. 20 (percent)
+  quantity    Int   @default(1)
+
+  estimatedWeight Float? // grams
+  estimatedTime   Int? // minutes
+  estimatedCost   Int? // cents
+  unitPrice       Int
+  totalPrice      Int
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------
+// ORDER DOMAIN
+// ----------------------------------------------------------------------
+
+model Order {
+  id      String @id @default(uuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id])
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+
+  status OrderStatus @default(PENDING_PAYMENT)
+
+  subtotal     Int
+  tax          Int
+  shippingCost Int @default(0)
+  total        Int
+
+  items     OrderItem[]
+  payments  PaymentTransaction[]
+  shipments Shipment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  IN_PRODUCTION
+  PARTIALLY_SHIPPED
+  SHIPPED
+  DELIVERED
+  CANCELED
+  REFUNDED
+}
+
+model OrderItem {
+  id          String    @id @default(uuid())
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  quoteItemId String
+  quoteItem   QuoteItem @relation(fields: [quoteItemId], references: [id])
+
+  quantity   Int
+  unitPrice  Int
+  totalPrice Int
+
+  jobs ManufacturingJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------
+// PAYMENTS & SHIPPING DOMAIN
+// ----------------------------------------------------------------------
+
+model PaymentTransaction {
+  id            String        @id @default(uuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider      String // e.g. "Razorpay", "Stripe"
+  providerRefId String? // Transaction ID from gateway
+  amount        Int
+  status        PaymentStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model Shipment {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  addressId String
+  address   Address @relation(fields: [addressId], references: [id])
+
+  courier      String?
+  trackingCode String?
+  status       ShipmentStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ShipmentStatus {
+  PENDING
+  READY_FOR_PICKUP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RETURNED
+}
+
+// ----------------------------------------------------------------------
+// ADMINISTRATION DOMAIN
+// ----------------------------------------------------------------------
+
+model Setting {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  value       String
+  description String?
+
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+model Coupon {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  discountType  String // e.g. "PERCENTAGE", "FIXED"
+  discountValue Int
+  maxUses       Int?
+  currentUses   Int       @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String  @id @default(uuid())
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String
+  metadata   String? // JSON payload stringified
+
+  createdAt DateTime @default(now())
+}
+
+model Page {
+  id          String  @id @default(uuid())
+  slug        String  @unique
+  title       String
+  content     String // Markdown or HTML
+  isPublished Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+}
+
+model FeatureFlag {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  isEnabled   Boolean @default(false)
+  description String?
+
+  updatedAt DateTime @updatedAt
+}

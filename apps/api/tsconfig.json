@@ -1,0 +1,10 @@
+{
+  "extends": "@only3d/typescript-config/nestjs.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

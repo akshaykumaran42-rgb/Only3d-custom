@@ -1,0 +1,4 @@
+
+> api@0.1.0 lint F:\Only3d custom\apps\api
+> eslint "{src,apps,libs,test}/**/*.ts" --fix
+
