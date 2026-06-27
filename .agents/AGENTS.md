@@ -20,3 +20,4 @@
 7. Minimize shell command count. Prefer making one correct edit over many small automated patches.
 8. Avoid repeated search-and-replace operations on production code. Prefer AST-aware edits or direct source edits.
 9. Every architectural change must leave the repository in a clean state (git status must report "working tree clean").
+10. Don't use curl to poll GitHub. Don't require gh (GitHub CLI). After a successful git push, stop and tell the user: "Please confirm the GitHub Actions run is green"
