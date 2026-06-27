@@ -39,14 +39,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma Client
+        run: pnpm turbo run generate
+
+      - name: Build Packages (Declaration Generation)
+        run: pnpm turbo run build
+
       - name: Typecheck
         run: pnpm turbo run typecheck
 
       - name: Lint
         run: pnpm turbo run lint
-
-      - name: Build
-        run: pnpm turbo run build
 
       - name: Test
         run: pnpm turbo run test
