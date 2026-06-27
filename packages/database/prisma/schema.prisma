@@ -689,3 +689,55 @@ model FeatureFlag {
 
   updatedAt DateTime @updatedAt
 }
+
+// ----------------------------------------------------------------------
+// UPLOADS & FILE ANALYSIS
+// ----------------------------------------------------------------------
+
+enum UploadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Upload {
+  id               String       @id @default(uuid())
+  customerId       String?
+  originalFilename String
+  storedFilename   String       @unique
+  mimeType         String
+  extension        String
+  fileSizeBytes    Int
+  checksumSHA256   String       @unique
+  uploadStatus     UploadStatus @default(PENDING)
+  storageProvider  String
+  storageKey       String
+  uploadedAt       DateTime     @default(now())
+
+  analysis ModelAnalysis?
+
+  @@index([customerId])
+  @@index([uploadStatus])
+}
+
+model ModelAnalysis {
+  id       String @id @default(uuid())
+  uploadId String @unique
+  upload   Upload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  boundingBoxX   Float
+  boundingBoxY   Float
+  boundingBoxZ   Float
+  volumeMm3      Float
+  surfaceAreaMm2 Float
+  triangleCount  Int
+
+  isManifold           Boolean
+  hasSelfIntersections Boolean
+  estimatedComplexity  String
+
+  thumbnailPath  String?
+  analysisStatus String   @default("COMPLETED")
+  analyzedAt     DateTime @default(now())
+}
