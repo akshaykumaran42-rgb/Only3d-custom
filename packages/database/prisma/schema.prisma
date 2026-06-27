@@ -163,11 +163,43 @@ model ProductImage {
 // MATERIALS DOMAIN
 // ----------------------------------------------------------------------
 
+enum MaterialType {
+  FDM
+  RESIN
+  SLS
+  METAL
+}
+
+enum MaterialStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
 model Material {
-  id          String  @id @default(uuid())
-  name        String  @unique // e.g. "PLA", "PETG"
-  description String?
-  baseDensity Float? // g/cm³ for weight estimation
+  id                          String         @id @default(uuid())
+  name                        String         @unique 
+  internalCode                String         @unique
+  category                    String
+  brand                       String
+  materialType                MaterialType   @default(FDM)
+  density                     Float          // g/cm³
+  costPerKg                   Int            // Stored in cents
+  sellingPricePerGram         Float          // Allows fractional cents for precise quoting
+  defaultPrintSpeedMultiplier Float          @default(1.0)
+  nozzleTemperature           Int
+  bedTemperature              Int
+  chamberTemperature          Int?
+  coolingProfile              Json?
+  compatibleNozzleSizes       Float[]
+  compatiblePrinterProfiles   String[]
+  status                      MaterialStatus @default(DRAFT)
+  visibility                  Boolean        @default(false)
+  displayOrder                Int            @default(0)
+  description                 String?
+  metadata                    Json?
+  thumbnailImageMetadata      Json?
+  version                     Int            @default(1) // Optimistic locking
 
   colors   MaterialColor[]
   profiles MaterialProfile[]
@@ -177,6 +209,11 @@ model Material {
   deletedAt DateTime?
   createdBy String?
   updatedBy String?
+
+  @@index([status])
+  @@index([visibility])
+  @@index([category])
+  @@index([materialType])
 }
 
 model MaterialColor {
