@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   Inject,
@@ -55,7 +53,7 @@ export class MaterialsService {
       coolingProfile: dto.coolingProfile ?? null,
       compatibleNozzleSizes: dto.compatibleNozzleSizes ?? [],
       compatiblePrinterProfiles: dto.compatiblePrinterProfiles ?? [],
-      status: dto.status as any, // It is mapped from enum
+      status: dto.status as never, // It is mapped from enum
       visibility: dto.visibility ?? false,
       displayOrder: dto.displayOrder ?? 0,
       description: dto.description ?? null,

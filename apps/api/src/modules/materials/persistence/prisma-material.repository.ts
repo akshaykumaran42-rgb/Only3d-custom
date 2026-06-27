@@ -1,18 +1,23 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service";
 import { IMaterialRepository } from "../domain/material.repository.interface";
-import { MaterialEntity, MaterialProps } from "../domain/material.entity";
-import { MaterialType, MaterialStatus } from "@only3d/database";
+import { MaterialEntity } from "../domain/material.entity";
+import {
+  MaterialType,
+  MaterialStatus,
+  Prisma,
+  Material,
+} from "@only3d/database";
 import { MaterialType as DomainMaterialType } from "../domain/material-type.enum";
 import { MaterialStatus as DomainMaterialStatus } from "../domain/material-status.enum";
+
+type PrismaMaterialModel = Material;
 
 @Injectable()
 export class PrismaMaterialRepository implements IMaterialRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapToDomain(prismaMaterial: any): MaterialEntity {
+  private mapToDomain(prismaMaterial: PrismaMaterialModel): MaterialEntity {
     return MaterialEntity.create({
       id: prismaMaterial.id,
       name: prismaMaterial.name,
@@ -30,7 +35,7 @@ export class PrismaMaterialRepository implements IMaterialRepository {
       chamberTemperature: prismaMaterial.chamberTemperature,
       coolingProfile: prismaMaterial.coolingProfile as Record<
         string,
-        any
+        unknown
       > | null,
       compatibleNozzleSizes: prismaMaterial.compatibleNozzleSizes,
       compatiblePrinterProfiles: prismaMaterial.compatiblePrinterProfiles,
@@ -38,10 +43,10 @@ export class PrismaMaterialRepository implements IMaterialRepository {
       visibility: prismaMaterial.visibility,
       displayOrder: prismaMaterial.displayOrder,
       description: prismaMaterial.description,
-      metadata: prismaMaterial.metadata as Record<string, any> | null,
+      metadata: prismaMaterial.metadata as Record<string, unknown> | null,
       thumbnailImageMetadata: prismaMaterial.thumbnailImageMetadata as Record<
         string,
-        any
+        unknown
       > | null,
       version: prismaMaterial.version,
       createdAt: prismaMaterial.createdAt,
@@ -66,17 +71,21 @@ export class PrismaMaterialRepository implements IMaterialRepository {
       nozzleTemperature: json.nozzleTemperature,
       bedTemperature: json.bedTemperature,
       chamberTemperature: json.chamberTemperature,
-      coolingProfile: json.coolingProfile ? json.coolingProfile : undefined,
+      coolingProfile: json.coolingProfile
+        ? (json.coolingProfile as Prisma.JsonObject)
+        : Prisma.JsonNull,
       compatibleNozzleSizes: json.compatibleNozzleSizes,
       compatiblePrinterProfiles: json.compatiblePrinterProfiles,
       status: json.status as unknown as MaterialStatus,
       visibility: json.visibility,
       displayOrder: json.displayOrder,
       description: json.description,
-      metadata: json.metadata ? json.metadata : undefined,
+      metadata: json.metadata
+        ? (json.metadata as Prisma.JsonObject)
+        : Prisma.JsonNull,
       thumbnailImageMetadata: json.thumbnailImageMetadata
-        ? json.thumbnailImageMetadata
-        : undefined,
+        ? (json.thumbnailImageMetadata as Prisma.JsonObject)
+        : Prisma.JsonNull,
       version: json.version,
       createdAt: json.createdAt,
       updatedAt: json.updatedAt,
@@ -132,8 +141,9 @@ export class PrismaMaterialRepository implements IMaterialRepository {
         where: { id: entity.id },
         data: updateData,
       });
-      // Reflect new version in domain object (using private property access or a method, for now we bypass to keep sync)
-      (entity as any).props.version = updateData.version;
+      // Reflect new version in domain object
+      // @ts-expect-error accessing private property for ORM persistence
+      entity.props.version = updateData.version;
     } else {
       await this.prisma.material.create({
         data,
@@ -143,7 +153,6 @@ export class PrismaMaterialRepository implements IMaterialRepository {
   }
 
   async delete(id: string): Promise<void> {
-    // Hard delete is rarely used, usually we soft delete via save()
     await this.prisma.material.delete({ where: { id } });
   }
 
@@ -160,7 +169,7 @@ export class PrismaMaterialRepository implements IMaterialRepository {
     const limit = query.limit && query.limit > 0 ? query.limit : 20;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.MaterialWhereInput = {};
 
     if (!query.includeDeleted) {
       where.deletedAt = null;

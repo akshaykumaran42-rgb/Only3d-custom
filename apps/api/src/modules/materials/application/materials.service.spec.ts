@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Test, TestingModule } from "@nestjs/testing";
 import { MaterialsService } from "./materials.service";
@@ -9,7 +7,7 @@ import { MaterialEntity } from "../domain/material.entity";
 
 describe("MaterialsService", () => {
   let service: MaterialsService;
-  let mockRepository: any;
+  let mockRepository: Record<string, import("vitest").Mock>;
 
   beforeEach(async () => {
     mockRepository = {
@@ -41,7 +39,7 @@ describe("MaterialsService", () => {
     it("should throw ConflictException if material name exists", async () => {
       mockRepository.findByName.mockResolvedValue(true);
       await expect(
-        service.create({ name: "PLA", internalCode: "1" } as any),
+        service.create({ name: "PLA", internalCode: "1" } as never),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -54,13 +52,13 @@ describe("MaterialsService", () => {
         internalCode: "PLA-01",
         category: "Standard",
         brand: "BrandX",
-        materialType: "FDM" as any,
+        materialType: "FDM" as never,
         density: 1.24,
         costPerKg: 2000,
         sellingPricePerGram: 0.05,
         nozzleTemperature: 215,
         bedTemperature: 60,
-      } as any);
+      } as never);
 
       expect(material).toBeInstanceOf(MaterialEntity);
       expect(material.name).toEqual("PLA");

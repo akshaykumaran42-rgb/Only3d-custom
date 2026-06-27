@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { MaterialType } from "./material-type.enum";
 import { MaterialStatus } from "./material-status.enum";
 import { DomainError } from "../../../core/errors/domain.error";
@@ -18,15 +16,15 @@ export interface MaterialProps {
   nozzleTemperature: number;
   bedTemperature: number;
   chamberTemperature: number | null;
-  coolingProfile: Record<string, any> | null;
+  coolingProfile: Record<string, unknown> | null;
   compatibleNozzleSizes: number[];
   compatiblePrinterProfiles: string[];
   status: MaterialStatus;
   visibility: boolean;
   displayOrder: number;
   description: string | null;
-  metadata: Record<string, any> | null;
-  thumbnailImageMetadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
+  thumbnailImageMetadata: Record<string, unknown> | null;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -82,7 +80,7 @@ export class MaterialEntity {
   get chamberTemperature(): number | null {
     return this.props.chamberTemperature;
   }
-  get coolingProfile(): Record<string, any> | null {
+  get coolingProfile(): Record<string, unknown> | null {
     return this.props.coolingProfile;
   }
   get compatibleNozzleSizes(): number[] {
@@ -103,10 +101,10 @@ export class MaterialEntity {
   get description(): string | null {
     return this.props.description;
   }
-  get metadata(): Record<string, any> | null {
+  get metadata(): Record<string, unknown> | null {
     return this.props.metadata;
   }
-  get thumbnailImageMetadata(): Record<string, any> | null {
+  get thumbnailImageMetadata(): Record<string, unknown> | null {
     return this.props.thumbnailImageMetadata;
   }
   get version(): number {

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsEnum,
@@ -82,7 +80,7 @@ export class CreateMaterialDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  coolingProfile?: Record<string, any>;
+  coolingProfile?: Record<string, unknown>;
 
   @ApiPropertyOptional({ type: [Number], example: [0.4, 0.6] })
   @IsOptional()
@@ -119,5 +117,5 @@ export class CreateMaterialDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
