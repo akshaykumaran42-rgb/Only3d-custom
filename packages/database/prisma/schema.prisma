@@ -203,6 +203,7 @@ model Material {
 
   colors   MaterialColor[]
   profiles MaterialProfile[]
+  quotes   Quote[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -230,8 +231,6 @@ model MaterialColor {
   deletedAt DateTime?
   createdBy String?
   updatedBy String?
-
-  quoteItems QuoteItem[]
 }
 
 model MaterialProfile {
@@ -335,6 +334,8 @@ model PrinterProfile {
   speedMultiplier        Float @default(1.0)
   qualityMultiplier      Float @default(1.0)
 
+  quotes Quote[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -421,10 +422,9 @@ model UploadedFile {
   sizeBytes Int
   format    String // e.g. "STL", "3MF"
 
-  analysis   FileAnalysis?
-  versions   FileVersion[]
-  previews   FilePreview[]
-  quoteItems QuoteItem[]
+  analysis FileAnalysis?
+  versions FileVersion[]
+  previews FilePreview[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -466,74 +466,13 @@ model FilePreview {
 }
 
 // ----------------------------------------------------------------------
-// QUOTE DOMAIN
-// ----------------------------------------------------------------------
-
-model Quote {
-  id     String      @id @default(uuid())
-  userId String?
-  user   User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  status QuoteStatus @default(DRAFT)
-
-  subtotal Int @default(0)
-  tax      Int @default(0)
-  total    Int @default(0)
-
-  expiresAt DateTime?
-
-  items  QuoteItem[]
-  orders Order[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-}
-
-enum QuoteStatus {
-  DRAFT
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
-  EXPIRED
-  CONVERTED
-}
-
-model QuoteItem {
-  id      String       @id @default(uuid())
-  quoteId String
-  quote   Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  fileId  String
-  file    UploadedFile @relation(fields: [fileId], references: [id])
-
-  materialColorId String
-  materialColor   MaterialColor @relation(fields: [materialColorId], references: [id])
-
-  layerHeight Float // e.g. 0.2
-  infill      Int // e.g. 20 (percent)
-  quantity    Int   @default(1)
-
-  estimatedWeight Float? // grams
-  estimatedTime   Int? // minutes
-  estimatedCost   Int? // cents
-  unitPrice       Int
-  totalPrice      Int
-
-  orderItems OrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ----------------------------------------------------------------------
 // ORDER DOMAIN
 // ----------------------------------------------------------------------
 
 model Order {
-  id      String @id @default(uuid())
-  quoteId String
-  quote   Quote  @relation(fields: [quoteId], references: [id])
-  userId  String
-  user    User   @relation(fields: [userId], references: [id])
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   status OrderStatus @default(PENDING_PAYMENT)
 
@@ -564,11 +503,11 @@ enum OrderStatus {
 }
 
 model OrderItem {
-  id          String    @id @default(uuid())
-  orderId     String
-  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  quoteItemId String
-  quoteItem   QuoteItem @relation(fields: [quoteItemId], references: [id])
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id])
 
   quantity   Int
   unitPrice  Int
@@ -716,6 +655,7 @@ model Upload {
   uploadedAt       DateTime     @default(now())
 
   analysis ModelAnalysis?
+  quotes   Quote[]
 
   @@index([customerId])
   @@index([uploadStatus])
@@ -740,4 +680,65 @@ model ModelAnalysis {
   thumbnailPath  String?
   analysisStatus String   @default("COMPLETED")
   analyzedAt     DateTime @default(now())
+}
+
+// ----------------------------------------------------------------------
+// QUOTE ENGINE
+// ----------------------------------------------------------------------
+
+enum QuoteState {
+  DRAFT
+  CALCULATED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  ORDERED
+}
+
+model Quote {
+  id         String  @id @default(uuid())
+  customerId String?
+
+  uploadId String
+  upload   Upload @relation(fields: [uploadId], references: [id])
+
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+
+  printerProfileId String
+  printerProfile   PrinterProfile @relation(fields: [printerProfileId], references: [id])
+
+  state   QuoteState @default(DRAFT)
+  version Int        @default(1)
+
+  // Input snapshots
+  uploadSnapshot   Json?
+  analysisSnapshot Json?
+  materialSnapshot Json?
+  printerSnapshot  Json?
+  ruleSnapshot     Json?
+
+  // Pricing components (stored in minor currency units, e.g. cents)
+  materialCost        Int?
+  machineCost         Int?
+  electricityCost     Int?
+  machineWearCost     Int?
+  failureMarginCost   Int?
+  supportMaterialCost Int?
+  postProcessingCost  Int?
+  packagingCost       Int?
+  shippingCost        Int?
+  profitMargin        Int?
+  tax                 Int?
+  totalPrice          Int?
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  expiresAt DateTime?
+  User      User?       @relation(fields: [userId], references: [id])
+  userId    String?
+  OrderItem OrderItem[]
+
+  @@index([customerId])
+  @@index([state])
 }
